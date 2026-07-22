@@ -55,7 +55,7 @@ Supabase configured to actually submit a request or sign in as an admin.
 4. Restart `npm run dev` after editing `.env.local` (Next.js only reads it
    at startup).
 
-## 6. Run the SQL migration
+## 6. Run the SQL migrations
 
 1. In the Supabase dashboard, open **SQL Editor** in the left sidebar.
 2. Click **New query**.
@@ -63,6 +63,10 @@ Supabase configured to actually submit a request or sign in as an admin.
    in this repo, copy its entire contents, and paste it into the query
    editor.
 4. Click **Run**. You should see "Success. No rows returned."
+5. Repeat steps 2–4 for [`supabase/migrations/0002_patient_type_and_viewed_at.sql`](./supabase/migrations/0002_patient_type_and_viewed_at.sql)
+   (adds the new/existing-patient field and the admin "viewed" marker used
+   for new-request notifications). If you set this project up before this
+   migration existed, come back and run it now — it's safe to run once.
 
 This creates the `appointments` table, its indexes, and enables Row Level
 Security (see the comment at the top of the migration for why there are

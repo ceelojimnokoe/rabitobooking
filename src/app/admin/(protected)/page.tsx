@@ -4,6 +4,7 @@ import { listAppointments } from "@/lib/db/appointments";
 import { toDateKey } from "@/lib/scheduling";
 import { SummaryCards, type SummaryCounts } from "@/components/admin/summary-cards";
 import { AppointmentsExplorer } from "@/components/admin/appointments-explorer";
+import { NewRequestNotifier } from "@/components/admin/new-request-notifier";
 import type { AppointmentRow } from "@/types/appointment";
 
 export const metadata: Metadata = {
@@ -50,8 +51,13 @@ export default async function AdminDashboardPage() {
     );
   }
 
+  const unviewedPendingCount = appointments.filter(
+    (a) => a.status === "pending" && !a.viewed_at,
+  ).length;
+
   return (
     <div className="flex flex-col gap-6">
+      <NewRequestNotifier initialCount={unviewedPendingCount} />
       <div>
         <h1 className="text-2xl font-bold text-ink">Appointment requests</h1>
         <p className="mt-1 text-sm text-muted">

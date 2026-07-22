@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { getAppointmentById } from "@/lib/db/appointments";
+import { getAppointmentById, markAppointmentViewed } from "@/lib/db/appointments";
 import { formatDateKeyLong, formatTimeLabel } from "@/lib/scheduling";
+import { patientTypes } from "@/config/clinic";
 import { StatusBadge } from "@/components/ui/badge";
 import { AdminActionsPanel } from "@/components/admin/admin-actions-panel";
 
@@ -33,6 +34,10 @@ export default async function AppointmentDetailPage({
 
   if (error || !appointment) {
     notFound();
+  }
+
+  if (!appointment.viewed_at) {
+    await markAppointmentViewed(appointment.id);
   }
 
   return (
@@ -65,6 +70,13 @@ export default async function AppointmentDetailPage({
         <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <DetailRow label="Phone" value={appointment.phone} />
           <DetailRow label="Email" value={appointment.email} />
+          <DetailRow
+            label="Patient type"
+            value={
+              patientTypes.find((t) => t.id === appointment.patient_type)?.label ??
+              appointment.patient_type
+            }
+          />
           <DetailRow label="Service" value={appointment.service} />
           <DetailRow label="Requested branch" value={appointment.requested_branch} />
           <DetailRow

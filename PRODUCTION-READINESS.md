@@ -10,9 +10,12 @@ changed.
 
 - **Formal clinic approval** of the concept, workflow, and this codebase
   (or a production rebuild of it) before any real patient uses it.
-- **Confirmed branch and service information.** The branch names in
-  `src/config/clinic.ts` (Accra Clinic, Tema Clinic, Kumasi Clinic, Online
-  Consultation) are explicitly marked in that file as demo placeholders.
+- **Confirmed branch and service information.** Branch names and hours in
+  `src/config/clinic.ts` (Osu, East Legon, Tema Comm 11, Dansoman, Kasoa,
+  Adiebeba, Koforidua, plus Online) reflect what was provided during this
+  build — double-check them against the clinic's actual current branch
+  list and opening hours before any real use, and update that one file if
+  anything has changed since.
 - **A privacy policy** covering what's collected (name, phone, email,
   service, branch, date/time preference), how long it's kept, and who can
   access it — linked from the booking form, not just implied.

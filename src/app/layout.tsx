@@ -30,7 +30,17 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-pale text-ink">
+      {/*
+        suppressHydrationWarning on <body> only: some browser extensions
+        (e.g. Grammarly, password managers) inject attributes like
+        data-gr-ext-installed before React hydrates, which otherwise trips
+        a false-positive mismatch warning that has nothing to do with our
+        markup. It does not suppress mismatches in children.
+      */}
+      <body
+        className="min-h-full flex flex-col bg-pale text-ink"
+        suppressHydrationWarning
+      >
         <ToastProvider>{children}</ToastProvider>
       </body>
     </html>

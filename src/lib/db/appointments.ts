@@ -5,6 +5,7 @@ import type {
   AppointmentStatus,
   EmailStatus,
   EmailPreviewPayload,
+  PatientType,
 } from "@/types/appointment";
 
 /**
@@ -26,6 +27,7 @@ export interface AppointmentInsertInput {
   patient_name: string;
   phone: string;
   email: string;
+  patient_type: PatientType;
   service: string;
   requested_branch: string;
   requested_date: string;
@@ -108,6 +110,7 @@ export interface AppointmentUpdateInput {
   email_status?: EmailStatus;
   email_provider_id?: string | null;
   email_preview?: EmailPreviewPayload | null;
+  viewed_at?: string | null;
 }
 
 export async function updateAppointment(
@@ -123,4 +126,29 @@ export async function updateAppointment(
     .single();
 
   return { data: (data as AppointmentRow) ?? null, error };
+}
+
+/** Marks a request as opened by an administrator, if not already marked. */
+export async function markAppointmentViewed(id: string): Promise<void> {
+  const supabase = createSupabaseAdminClient();
+  await supabase
+    .from(TABLE)
+    .update({ viewed_at: new Date().toISOString() })
+    .eq("id", id)
+    .is("viewed_at", null);
+}
+
+/** Count of pending requests an administrator hasn't opened yet — used to power the dashboard's new-request notification. */
+export async function countUnviewedPending(): Promise<{
+  count: number;
+  error: DbError | null;
+}> {
+  const supabase = createSupabaseAdminClient();
+  const { count, error } = await supabase
+    .from(TABLE)
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending")
+    .is("viewed_at", null);
+
+  return { count: count ?? 0, error };
 }

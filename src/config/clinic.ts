@@ -28,7 +28,7 @@ export type ServiceId =
   | "general-dermatology"
   | "general-health"
   | "cosmetic-centre"
-  | "mycarenow-online";
+  | "mycaremobile-online";
 
 export interface ServiceOption {
   id: ServiceId;
@@ -59,38 +59,41 @@ export const services: ServiceOption[] = [
     description: "Cosmetic and aesthetic consultations.",
   },
   {
-    id: "mycarenow-online",
-    label: "Mycarenow (Online)",
+    id: "mycaremobile-online",
+    label: "MyCareMobile (Online)",
     description: "Online video consultation from any location.",
   },
 ];
 
 export type BranchId =
-  | "accra-clinic"
-  | "tema-clinic"
-  | "kumasi-clinic"
-  | "online-consultation";
+  | "osu"
+  | "east-legon"
+  | "tema-comm-11"
+  | "dansoman"
+  | "kasoa"
+  | "adiebeba"
+  | "koforidua"
+  | "online";
 
 export interface BranchOption {
   id: BranchId;
   label: string;
 }
 
-/**
- * DEMO BRANCH NAMES — these are placeholder locations for demonstration
- * purposes only. Replace with the clinic's confirmed, real branch list
- * before any production use.
- */
 export const branches: BranchOption[] = [
-  { id: "accra-clinic", label: "Accra Clinic" },
-  { id: "tema-clinic", label: "Tema Clinic" },
-  { id: "kumasi-clinic", label: "Kumasi Clinic" },
-  { id: "online-consultation", label: "Online Consultation" },
+  { id: "osu", label: "Osu" },
+  { id: "east-legon", label: "East Legon" },
+  { id: "tema-comm-11", label: "Tema Comm 11" },
+  { id: "dansoman", label: "Dansoman" },
+  { id: "kasoa", label: "Kasoa" },
+  { id: "adiebeba", label: "Adiebeba" },
+  { id: "koforidua", label: "Koforidua" },
+  { id: "online", label: "Online" },
 ];
 
 /** Service that should steer patients toward the online branch. */
-export const onlineServiceId: ServiceId = "mycarenow-online";
-export const recommendedOnlineBranchId: BranchId = "online-consultation";
+export const onlineServiceId: ServiceId = "mycaremobile-online";
+export const recommendedOnlineBranchId: BranchId = "online";
 
 export type TeamId =
   | "dermatology-team"
@@ -111,15 +114,60 @@ export const teams: TeamOption[] = [
   { id: "online-care-team", label: "Online Care Team" },
 ];
 
+export type PatientTypeId = "new" | "existing";
+
+export interface PatientTypeOption {
+  id: PatientTypeId;
+  label: string;
+}
+
+/** Whether the patient has visited the clinic before. */
+export const patientTypes: PatientTypeOption[] = [
+  { id: "new", label: "New patient" },
+  { id: "existing", label: "Existing patient" },
+];
+
+export interface DayHours {
+  open: string;
+  close: string;
+}
+
+export interface BranchSchedule {
+  /** Monday–Friday hours, or null if closed weekdays. */
+  weekday: DayHours | null;
+  /** Saturday–Sunday hours, or null if closed weekends. */
+  weekend: DayHours | null;
+}
+
+const DEFAULT_WEEKDAY_HOURS: DayHours = { open: "08:00", close: "16:00" };
+const DEFAULT_WEEKEND_HOURS: DayHours = { open: "08:00", close: "14:00" };
+
 /**
- * Scheduling configuration. Days follow JavaScript's Date#getDay() numbering
- * (0 = Sunday ... 6 = Saturday). Demo defaults are Monday–Saturday, 9am–5pm,
- * in 30-minute increments, closed Sundays.
+ * Per-branch opening hours. All branches default to weekdays 8am–4pm and
+ * weekends 8am–2pm, with two overrides: East Legon stays open later on
+ * weekdays, and Koforidua is closed entirely on weekends.
+ */
+export const branchSchedules: Record<BranchId, BranchSchedule> = {
+  osu: { weekday: DEFAULT_WEEKDAY_HOURS, weekend: DEFAULT_WEEKEND_HOURS },
+  "east-legon": {
+    weekday: { open: "08:00", close: "19:00" },
+    weekend: DEFAULT_WEEKEND_HOURS,
+  },
+  "tema-comm-11": { weekday: DEFAULT_WEEKDAY_HOURS, weekend: DEFAULT_WEEKEND_HOURS },
+  dansoman: { weekday: DEFAULT_WEEKDAY_HOURS, weekend: DEFAULT_WEEKEND_HOURS },
+  kasoa: { weekday: DEFAULT_WEEKDAY_HOURS, weekend: DEFAULT_WEEKEND_HOURS },
+  adiebeba: { weekday: DEFAULT_WEEKDAY_HOURS, weekend: DEFAULT_WEEKEND_HOURS },
+  koforidua: { weekday: DEFAULT_WEEKDAY_HOURS, weekend: null },
+  online: { weekday: DEFAULT_WEEKDAY_HOURS, weekend: DEFAULT_WEEKEND_HOURS },
+};
+
+/**
+ * Scheduling configuration shared across all branches. Per-branch hours
+ * live in `branchSchedules` above; availability is otherwise configurable
+ * here (slot length, how far ahead patients can book, and the timezone
+ * all date/time logic is evaluated in).
  */
 export const scheduling = {
-  workingDays: [1, 2, 3, 4, 5, 6] as number[],
-  openingTime: "09:00",
-  closingTime: "17:00",
   slotDurationMinutes: 30,
   bookingWindowDays: 60,
   timezone: "Africa/Accra",

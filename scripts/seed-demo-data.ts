@@ -12,7 +12,11 @@
 import { createClient } from "@supabase/supabase-js";
 import { generateRequestReference, generateAppointmentReference } from "../src/lib/reference";
 import { services, branches, teams } from "../src/config/clinic";
-import { selectableDateKeys, allTimeSlotsForDay } from "../src/lib/scheduling";
+import {
+  selectableDateKeysForBranch,
+  allTimeSlotsForBranchDay,
+  fromDateKey,
+} from "../src/lib/scheduling";
 import { buildConfirmationEmail, buildRejectionEmail } from "../src/lib/email/templates";
 
 const DEMO_EMAIL_DOMAIN = "demo.rabitoclinic.example";
@@ -25,6 +29,15 @@ function branchLabel(id: string): string {
 }
 function teamLabel(id: string): string {
   return teams.find((t) => t.id === id)!.label;
+}
+
+/** A future date/time this specific branch is actually open for, `offset` days out. */
+function futureSlotForBranch(now: Date, branchId: string, offset: number, slotIndex: number) {
+  const label = branchLabel(branchId);
+  const dates = selectableDateKeysForBranch(now, label);
+  const dateKey = dates[Math.min(offset, dates.length - 1)];
+  const slots = allTimeSlotsForBranchDay(label, fromDateKey(dateKey));
+  return { date: dateKey, time: slots[slotIndex % slots.length] };
 }
 
 async function main() {
@@ -44,12 +57,6 @@ async function main() {
   });
 
   const now = new Date();
-  const dates = selectableDateKeys(now);
-  const slots = allTimeSlotsForDay();
-
-  // Pick a handful of distinct future dates/times so nothing collides.
-  const futureDate = (offset: number) => dates[Math.min(offset, dates.length - 1)];
-  const slotAt = (index: number) => slots[index % slots.length];
 
   console.log(`Clearing previous demo data (@${DEMO_EMAIL_DOMAIN})...`);
   const { error: deleteError } = await supabase
@@ -67,47 +74,54 @@ async function main() {
       patient_name: "Kwame Boateng",
       phone: "0244000001",
       email: `kwame.boateng@${DEMO_EMAIL_DOMAIN}`,
+      patient_type: "new",
       service: serviceLabel("general-health"),
-      requested_branch: branchLabel("accra-clinic"),
-      requested_date: futureDate(1),
-      requested_time: slotAt(0),
+      requested_branch: branchLabel("osu"),
+      ...futureSlotForBranch(now, "osu", 1, 0),
+      viewed_at: null, // unseen — shows a "New" badge
     },
     {
       patient_name: "Efua Owusu",
       phone: "+233201234567",
       email: `efua.owusu@${DEMO_EMAIL_DOMAIN}`,
+      patient_type: "existing",
       service: serviceLabel("general-dermatology"),
-      requested_branch: branchLabel("tema-clinic"),
-      requested_date: futureDate(2),
-      requested_time: slotAt(3),
+      requested_branch: branchLabel("east-legon"),
+      ...futureSlotForBranch(now, "east-legon", 2, 3),
+      viewed_at: null,
     },
     {
       patient_name: "Yaw Asante",
       phone: "0244000003",
       email: `yaw.asante@${DEMO_EMAIL_DOMAIN}`,
+      patient_type: "new",
       service: serviceLabel("cosmetic-centre"),
-      requested_branch: branchLabel("kumasi-clinic"),
-      requested_date: futureDate(3),
-      requested_time: slotAt(6),
+      requested_branch: branchLabel("kasoa"),
+      ...futureSlotForBranch(now, "kasoa", 3, 6),
+      viewed_at: new Date(now.getTime() - 60 * 60 * 1000).toISOString(),
     },
     {
       patient_name: "Abena Sarpong",
       phone: "+233244000004",
       email: `abena.sarpong@${DEMO_EMAIL_DOMAIN}`,
-      service: serviceLabel("mycarenow-online"),
-      requested_branch: branchLabel("online-consultation"),
-      requested_date: futureDate(4),
-      requested_time: slotAt(9),
+      patient_type: "existing",
+      service: serviceLabel("mycaremobile-online"),
+      requested_branch: branchLabel("online"),
+      ...futureSlotForBranch(now, "online", 4, 2),
+      viewed_at: null,
     },
   ];
 
   console.log(`Inserting ${pendingRequests.length} pending requests...`);
   for (const request of pendingRequests) {
+    const { date, time, ...rest } = request;
     const { error } = await supabase.from("appointments").insert({
       request_reference: generateRequestReference(),
       status: "pending",
       email_status: "not_sent",
-      ...request,
+      requested_date: date,
+      requested_time: time,
+      ...rest,
     });
     if (error) throw new Error(`Failed to insert pending request: ${error.message}`);
   }
@@ -117,43 +131,48 @@ async function main() {
       patient_name: "Kojo Mensah",
       phone: "0244000005",
       email: `kojo.mensah@${DEMO_EMAIL_DOMAIN}`,
+      patient_type: "existing" as const,
       service: serviceLabel("chief-dermatology"),
-      branch: branchLabel("accra-clinic"),
-      date: futureDate(5),
-      time: slotAt(2),
+      branchId: "osu",
+      offset: 5,
+      slotIndex: 2,
       team: teamLabel("dermatology-team"),
     },
     {
       patient_name: "Adjoa Frimpong",
       phone: "+233244000006",
       email: `adjoa.frimpong@${DEMO_EMAIL_DOMAIN}`,
+      patient_type: "new" as const,
       service: serviceLabel("general-health"),
-      branch: branchLabel("tema-clinic"),
-      date: futureDate(6),
-      time: slotAt(5),
+      branchId: "dansoman",
+      offset: 6,
+      slotIndex: 5,
       team: teamLabel("general-health-team"),
     },
     {
       patient_name: "Nana Yeboah",
       phone: "0244000007",
       email: `nana.yeboah@${DEMO_EMAIL_DOMAIN}`,
+      patient_type: "existing" as const,
       service: serviceLabel("cosmetic-centre"),
-      branch: branchLabel("kumasi-clinic"),
-      date: futureDate(7),
-      time: slotAt(8),
+      branchId: "adiebeba",
+      offset: 7,
+      slotIndex: 8,
       team: teamLabel("cosmetic-centre-team"),
     },
   ];
 
   console.log(`Inserting ${confirmedRequests.length} confirmed appointments...`);
   for (const request of confirmedRequests) {
+    const branch = branchLabel(request.branchId);
+    const { date, time } = futureSlotForBranch(now, request.branchId, request.offset, request.slotIndex);
     const appointmentReference = generateAppointmentReference();
     const emailContent = buildConfirmationEmail({
       patientName: request.patient_name,
       service: request.service,
-      branch: request.branch,
-      date: request.date,
-      time: request.time,
+      branch,
+      date,
+      time,
       assignedTeam: request.team,
       appointmentReference,
     });
@@ -164,13 +183,14 @@ async function main() {
       patient_name: request.patient_name,
       phone: request.phone,
       email: request.email,
+      patient_type: request.patient_type,
       service: request.service,
-      requested_branch: request.branch,
-      confirmed_branch: request.branch,
-      requested_date: request.date,
-      requested_time: request.time,
-      confirmed_date: request.date,
-      confirmed_time: request.time,
+      requested_branch: branch,
+      confirmed_branch: branch,
+      requested_date: date,
+      requested_time: time,
+      confirmed_date: date,
+      confirmed_time: time,
       assigned_team: request.team,
       status: "confirmed",
       email_status: "preview_only",
@@ -182,17 +202,19 @@ async function main() {
         generatedAt: new Date().toISOString(),
       },
       confirmed_at: new Date().toISOString(),
+      viewed_at: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
     });
     if (error) throw new Error(`Failed to insert confirmed appointment: ${error.message}`);
   }
 
   const rejectedReason =
     "That time slot is no longer available. Please submit a new request for a different date.";
+  const rejectedSlot = futureSlotForBranch(now, "osu", 2, 1);
   const rejectedEmail = buildRejectionEmail({
     patientName: "Efe Adjei",
     service: serviceLabel("cosmetic-centre"),
-    date: futureDate(2),
-    time: slotAt(1),
+    date: rejectedSlot.date,
+    time: rejectedSlot.time,
     reason: rejectedReason,
     bookingUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/book`,
   });
@@ -204,10 +226,11 @@ async function main() {
       patient_name: "Efe Adjei",
       phone: "0244000008",
       email: `efe.adjei@${DEMO_EMAIL_DOMAIN}`,
+      patient_type: "new",
       service: serviceLabel("cosmetic-centre"),
-      requested_branch: branchLabel("accra-clinic"),
-      requested_date: futureDate(2),
-      requested_time: slotAt(1),
+      requested_branch: branchLabel("osu"),
+      requested_date: rejectedSlot.date,
+      requested_time: rejectedSlot.time,
       status: "rejected",
       patient_message: rejectedReason,
       email_status: "preview_only",
@@ -218,6 +241,7 @@ async function main() {
         text: rejectedEmail.text,
         generatedAt: new Date().toISOString(),
       },
+      viewed_at: new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString(),
     });
     if (error) throw new Error(`Failed to insert rejected request: ${error.message}`);
   }

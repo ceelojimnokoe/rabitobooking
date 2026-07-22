@@ -2,11 +2,25 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { Search, Download } from "lucide-react";
 import type { AppointmentRow, AppointmentStatus } from "@/types/appointment";
-import { services, branches } from "@/config/clinic";
-import { formatDateKeyLong, formatTimeLabel } from "@/lib/scheduling";
+import { services, branches, patientTypes } from "@/config/clinic";
+import { formatDateKeyLong, formatTimeLabel, toDateKey } from "@/lib/scheduling";
+import { exportAppointmentsToXlsx } from "@/lib/xlsx-export";
 import { StatusBadge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+
+function patientTypeLabel(id: string): string {
+  return patientTypes.find((t) => t.id === id)?.label ?? id;
+}
+
+function NewBadge() {
+  return (
+    <span className="inline-flex items-center rounded-full bg-navy px-2 py-0.5 text-[11px] font-semibold text-white">
+      New
+    </span>
+  );
+}
 
 const STATUS_OPTIONS: { value: AppointmentStatus | "all"; label: string }[] = [
   { value: "all", label: "All statuses" },
@@ -42,6 +56,9 @@ export function AppointmentsExplorer({
   const [status, setStatus] = useState<AppointmentStatus | "all">("all");
   const [service, setService] = useState<string>("all");
   const [branch, setBranch] = useState<string>("all");
+  const [patientType, setPatientType] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -53,6 +70,9 @@ export function AppointmentsExplorer({
           ? true
           : a.requested_branch === branch || a.confirmed_branch === branch,
       )
+      .filter((a) => (patientType === "all" ? true : a.patient_type === patientType))
+      .filter((a) => (dateFrom ? a.requested_date >= dateFrom : true))
+      .filter((a) => (dateTo ? a.requested_date <= dateTo : true))
       .filter((a) => {
         if (!query) return true;
         return (
@@ -67,7 +87,12 @@ export function AppointmentsExplorer({
         (a, b) =>
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
       );
-  }, [appointments, search, status, service, branch]);
+  }, [appointments, search, status, service, branch, patientType, dateFrom, dateTo]);
+
+  function handleExport() {
+    const filename = `rabito-appointments-${toDateKey(new Date())}.xlsx`;
+    exportAppointmentsToXlsx(filtered, filename);
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -139,6 +164,57 @@ export function AppointmentsExplorer({
             </option>
           ))}
         </select>
+
+        <label className="sr-only" htmlFor="patient-type-filter">
+          Filter by patient type
+        </label>
+        <select
+          id="patient-type-filter"
+          value={patientType}
+          onChange={(e) => setPatientType(e.target.value)}
+          className={selectClasses}
+        >
+          <option value="all">New &amp; existing patients</option>
+          {patientTypes.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.label}
+            </option>
+          ))}
+        </select>
+
+        <div className="flex items-center gap-2">
+          <label htmlFor="date-from" className="text-xs font-medium text-muted">
+            From
+          </label>
+          <input
+            id="date-from"
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className={selectClasses}
+          />
+          <label htmlFor="date-to" className="text-xs font-medium text-muted">
+            To
+          </label>
+          <input
+            id="date-to"
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className={selectClasses}
+          />
+        </div>
+
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={handleExport}
+          disabled={filtered.length === 0}
+          className="sm:ml-auto"
+        >
+          <Download className="size-4" aria-hidden="true" />
+          Export to Excel
+        </Button>
       </div>
 
       {appointments.length === 0 ? (
@@ -181,7 +257,10 @@ export function AppointmentsExplorer({
                 {filtered.map((a) => (
                   <tr key={a.id} className="border-b border-border-blue last:border-0">
                     <td className="px-4 py-3 font-medium text-ink">
-                      {a.patient_name}
+                      <span className="flex items-center gap-2">
+                        {a.patient_name}
+                        {a.status === "pending" && !a.viewed_at ? <NewBadge /> : null}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-ink">{a.service}</td>
                     <td className="px-4 py-3 text-ink">
@@ -223,7 +302,10 @@ export function AppointmentsExplorer({
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="font-semibold text-ink">{a.patient_name}</p>
+                    <p className="flex items-center gap-2 font-semibold text-ink">
+                      {a.patient_name}
+                      {a.status === "pending" && !a.viewed_at ? <NewBadge /> : null}
+                    </p>
                     <p className="text-xs text-muted">{a.service}</p>
                   </div>
                   <StatusBadge status={a.status} />
@@ -233,6 +315,12 @@ export function AppointmentsExplorer({
                     <dt className="text-muted">Branch</dt>
                     <dd className="font-medium text-ink">
                       {a.confirmed_branch ?? a.requested_branch}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted">Patient type</dt>
+                    <dd className="font-medium text-ink">
+                      {patientTypeLabel(a.patient_type)}
                     </dd>
                   </div>
                   <div>

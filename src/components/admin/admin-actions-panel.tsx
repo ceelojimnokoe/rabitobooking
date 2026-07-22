@@ -5,9 +5,10 @@ import { AlertTriangle, CheckCircle2, Mail } from "lucide-react";
 import type { AppointmentRow } from "@/types/appointment";
 import { branches, teams } from "@/config/clinic";
 import {
-  allTimeSlotsForDay,
+  allTimeSlotsForBranchDay,
   formatTimeLabel,
   toDateKey,
+  fromDateKey,
   formatDateKeyLong,
 } from "@/lib/scheduling";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,12 @@ export function AdminActionsPanel({ appointment }: { appointment: AppointmentRow
   const isPending = appointment.status === "pending" && !result;
   const minDate = toDateKey(new Date());
 
+  // Recomputed from branch/date on every render rather than synced via an
+  // effect: if the previously-selected time isn't offered for the current
+  // branch/date, fall back to the first slot that is.
+  const availableSlots = date ? allTimeSlotsForBranchDay(branch, fromDateKey(date)) : [];
+  const effectiveTime = availableSlots.includes(time) ? time : (availableSlots[0] ?? "");
+
   async function handleConfirm() {
     setIsSubmitting(true);
     setActionError(null);
@@ -57,7 +64,7 @@ export function AdminActionsPanel({ appointment }: { appointment: AppointmentRow
       appointmentId: appointment.id,
       branch,
       date,
-      time,
+      time: effectiveTime,
       assignedTeam: assignedTeam || undefined,
     });
     setIsSubmitting(false);
@@ -207,15 +214,20 @@ export function AdminActionsPanel({ appointment }: { appointment: AppointmentRow
               </label>
               <select
                 id="final-time"
-                value={time}
+                value={effectiveTime}
                 onChange={(e) => setTime(e.target.value)}
+                disabled={availableSlots.length === 0}
                 className={selectClasses}
               >
-                {allTimeSlotsForDay().map((slot) => (
-                  <option key={slot} value={slot}>
-                    {formatTimeLabel(slot)}
-                  </option>
-                ))}
+                {availableSlots.length === 0 ? (
+                  <option value="">This branch is closed on that date</option>
+                ) : (
+                  availableSlots.map((slot) => (
+                    <option key={slot} value={slot}>
+                      {formatTimeLabel(slot)}
+                    </option>
+                  ))
+                )}
               </select>
             </div>
           </div>
@@ -303,7 +315,7 @@ export function AdminActionsPanel({ appointment }: { appointment: AppointmentRow
           <p>
             This will confirm <strong>{appointment.service}</strong> at{" "}
             <strong>{branch}</strong> on <strong>{formatDateKeyLong(date)}</strong>{" "}
-            at <strong>{formatTimeLabel(time)}</strong> and email {appointment.patient_name}.
+            at <strong>{formatTimeLabel(effectiveTime)}</strong> and email {appointment.patient_name}.
           </p>
         }
         confirmLabel="Yes, confirm"

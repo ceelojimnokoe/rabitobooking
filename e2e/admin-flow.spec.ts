@@ -27,7 +27,7 @@ test.describe("Admin appointment management", () => {
       phone: "0244777001",
       email: `efo.danso.${Date.now()}@example.com`,
       service: "General Health",
-      branch: "Tema Clinic",
+      branch: "Tema Comm 11",
       date: futureWeekdayISO(15),
       timeLabel: "1:00 PM",
     });
@@ -49,7 +49,7 @@ test.describe("Admin appointment management", () => {
       phone: "0244777002",
       email: `nhyira.osei.${Date.now()}@example.com`,
       service: "Rabito Cosmetic Centre",
-      branch: "Kumasi Clinic",
+      branch: "Adiebeba",
       date: futureWeekdayISO(16),
       timeLabel: "2:30 PM",
     });
@@ -74,7 +74,7 @@ test.describe("Admin appointment management", () => {
       phone: "0244777003",
       email: `kobby.antwi.${Date.now()}@example.com`,
       service: "General Health",
-      branch: "Accra Clinic",
+      branch: "Osu",
       date,
       timeLabel: "3:00 PM",
     });
@@ -83,7 +83,7 @@ test.describe("Admin appointment management", () => {
       phone: "0244777004",
       email: `serwaa.boadi.${Date.now()}@example.com`,
       service: "General Health",
-      branch: "Accra Clinic",
+      branch: "Osu",
       date,
       timeLabel: "3:00 PM",
     });
@@ -115,7 +115,7 @@ test.describe("Admin appointment management", () => {
       phone: "0244777005",
       email: `akosua.darko.${Date.now()}@example.com`,
       service: "Chief Dermatology",
-      branch: "Accra Clinic",
+      branch: "Osu",
       date: futureWeekdayISO(22),
       timeLabel: "9:30 AM",
     });

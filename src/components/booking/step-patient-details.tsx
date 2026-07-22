@@ -1,5 +1,6 @@
 import { useFormContext } from "react-hook-form";
 import type { BookingRequestInput } from "@/lib/validation/booking";
+import { patientTypes } from "@/config/clinic";
 import { Field, fieldInputClasses } from "./field";
 
 export function StepPatientDetails() {
@@ -58,6 +59,29 @@ export function StepPatientDetails() {
           aria-describedby="email-error"
           {...register("email")}
         />
+      </Field>
+
+      <Field
+        id="patientType"
+        label="Are you a new or existing patient?"
+        error={errors.patientType?.message}
+      >
+        <div className="grid grid-cols-2 gap-2">
+          {patientTypes.map((type) => (
+            <label
+              key={type.id}
+              className="flex cursor-pointer items-center justify-center rounded-lg border border-border-blue bg-white p-3 text-sm font-semibold text-ink has-checked:border-navy has-checked:bg-pale has-checked:ring-1 has-checked:ring-navy"
+            >
+              <input
+                type="radio"
+                value={type.id}
+                className="sr-only"
+                {...register("patientType")}
+              />
+              {type.label}
+            </label>
+          ))}
+        </div>
       </Field>
 
       {/* Honeypot: hidden from real users, tempting for simple bots. */}

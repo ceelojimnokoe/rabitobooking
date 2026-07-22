@@ -5,15 +5,16 @@
  */
 import { z } from "zod";
 import { isValidGhanaPhone } from "@/lib/phone";
-import { services, branches } from "@/config/clinic";
+import { services, branches, patientTypes } from "@/config/clinic";
 import {
-  validateDateKey,
-  isValidTimeSlot,
-  availableTimeSlots,
+  validateDateKeyForBranch,
+  isValidTimeSlotForBranch,
+  availableTimeSlotsForBranch,
 } from "@/lib/scheduling";
 
 const serviceLabels = services.map((s) => s.label) as [string, ...string[]];
 const branchLabels = branches.map((b) => b.label) as [string, ...string[]];
+const patientTypeIds = patientTypes.map((p) => p.id) as [string, ...string[]];
 
 export const bookingRequestSchema = z
   .object({
@@ -35,6 +36,9 @@ export const bookingRequestSchema = z
       .trim()
       .min(1, "Enter your email address.")
       .email("Enter a valid email address."),
+    patientType: z.enum(patientTypeIds, {
+      message: "Let us know if you're a new or existing patient.",
+    }),
     service: z.enum(serviceLabels, { message: "Select a service." }),
     branch: z.enum(branchLabels, { message: "Select a branch." }),
     date: z
@@ -53,7 +57,7 @@ export const bookingRequestSchema = z
   })
   .superRefine((data, ctx) => {
     const now = new Date();
-    const dateResult = validateDateKey(data.date, now);
+    const dateResult = validateDateKeyForBranch(data.date, now, data.branch);
     if (!dateResult.ok) {
       ctx.addIssue({
         code: "custom",
@@ -62,7 +66,7 @@ export const bookingRequestSchema = z
       });
       return;
     }
-    if (!isValidTimeSlot(data.time)) {
+    if (!isValidTimeSlotForBranch(data.time, data.branch, data.date)) {
       ctx.addIssue({
         code: "custom",
         path: ["time"],
@@ -70,7 +74,7 @@ export const bookingRequestSchema = z
       });
       return;
     }
-    if (!availableTimeSlots(data.date, now).includes(data.time)) {
+    if (!availableTimeSlotsForBranch(data.date, now, data.branch).includes(data.time)) {
       ctx.addIssue({
         code: "custom",
         path: ["time"],
@@ -83,7 +87,7 @@ export type BookingRequestInput = z.infer<typeof bookingRequestSchema>;
 
 /** Field groups for each wizard step, used with React Hook Form's trigger(). */
 export const BOOKING_STEP_FIELDS = {
-  patientDetails: ["fullName", "phone", "email"],
+  patientDetails: ["fullName", "phone", "email", "patientType"],
   serviceBranch: ["service", "branch"],
   dateTime: ["date", "time"],
   review: ["consent"],

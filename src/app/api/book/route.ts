@@ -44,7 +44,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { fullName, phone, email, service, branch, date, time } = parsed.data;
+  const { fullName, phone, email, patientType, service, branch, date, time } =
+    parsed.data;
 
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json(
@@ -64,6 +65,7 @@ export async function POST(request: NextRequest) {
       patient_name: fullName,
       phone,
       email,
+      patient_type: patientType as "new" | "existing",
       service,
       requested_branch: branch,
       requested_date: date,

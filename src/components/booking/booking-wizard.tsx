@@ -28,6 +28,7 @@ const defaultValues: BookingRequestInput = {
   fullName: "",
   phone: "",
   email: "",
+  patientType: "" as BookingRequestInput["patientType"],
   service: "" as BookingRequestInput["service"],
   branch: "" as BookingRequestInput["branch"],
   date: "",

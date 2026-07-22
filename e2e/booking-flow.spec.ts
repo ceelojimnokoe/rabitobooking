@@ -9,11 +9,12 @@ test.describe("Booking flow", () => {
     await page.getByLabel("Full name").fill("Ama Mensah");
     await page.getByLabel("Contact number").fill("0244123456");
     await page.getByLabel("Email address").fill("ama.mensah@example.com");
+    await page.getByText("New patient", { exact: true }).click();
     await page.getByRole("button", { name: "Continue" }).click();
 
     await expect(page.getByText("Step 2 of 4")).toBeVisible();
     await page.getByText("Chief Dermatology", { exact: true }).click();
-    await page.getByText("Accra Clinic", { exact: true }).click();
+    await page.getByText("Osu", { exact: true }).click();
     await page.getByRole("button", { name: "Continue" }).click();
 
     await expect(page.getByText("Step 3 of 4")).toBeVisible();
@@ -24,7 +25,8 @@ test.describe("Booking flow", () => {
     await expect(page.getByText("Step 4 of 4")).toBeVisible();
     await expect(page.getByText("Ama Mensah")).toBeVisible();
     await expect(page.getByText("Chief Dermatology")).toBeVisible();
-    await expect(page.getByText("Accra Clinic")).toBeVisible();
+    await expect(page.getByText("Osu")).toBeVisible();
+    await expect(page.getByText("New patient")).toBeVisible();
   });
 
   test("required field validation blocks progressing from step 1", async ({ page }) => {
@@ -43,6 +45,7 @@ test.describe("Booking flow", () => {
     await page.getByLabel("Full name").fill("Ama Mensah");
     await page.getByLabel("Contact number").fill("12345");
     await page.getByLabel("Email address").fill("ama.mensah@example.com");
+    await page.getByText("New patient", { exact: true }).click();
     await page.getByRole("button", { name: "Continue" }).click();
 
     await expect(page.getByText(/Enter a valid Ghanaian number/)).toBeVisible();
@@ -54,9 +57,10 @@ test.describe("Booking flow", () => {
     await page.getByLabel("Full name").fill("Ama Mensah");
     await page.getByLabel("Contact number").fill("0244123456");
     await page.getByLabel("Email address").fill("ama.mensah@example.com");
+    await page.getByText("New patient", { exact: true }).click();
     await page.getByRole("button", { name: "Continue" }).click();
     await page.getByText("General Health", { exact: true }).click();
-    await page.getByText("Accra Clinic", { exact: true }).click();
+    await page.getByText("Osu", { exact: true }).click();
     await page.getByRole("button", { name: "Continue" }).click();
 
     const dateInput = page.getByLabel("Preferred date");
@@ -66,30 +70,56 @@ test.describe("Booking flow", () => {
     expect(minAttr! >= today).toBe(true);
   });
 
-  test("Sunday cannot be selected", async ({ page }) => {
+  test("Koforidua is closed on weekends", async ({ page }) => {
     await page.goto("/book");
     await page.getByLabel("Full name").fill("Ama Mensah");
     await page.getByLabel("Contact number").fill("0244123456");
     await page.getByLabel("Email address").fill("ama.mensah@example.com");
+    await page.getByText("New patient", { exact: true }).click();
     await page.getByRole("button", { name: "Continue" }).click();
     await page.getByText("General Health", { exact: true }).click();
-    await page.getByText("Accra Clinic", { exact: true }).click();
+    await page.getByText("Koforidua", { exact: true }).click();
     await page.getByRole("button", { name: "Continue" }).click();
 
-    // Find the next Sunday from today.
-    const sunday = new Date();
-    while (sunday.getDay() !== 0) sunday.setDate(sunday.getDate() + 1);
-    // Ensure it's not today (would be excluded by "past" logic instead).
-    if (sunday.toDateString() === new Date().toDateString()) {
-      sunday.setDate(sunday.getDate() + 7);
+    // Find the next Saturday or Sunday from today.
+    const weekendDay = new Date();
+    while (weekendDay.getDay() !== 0 && weekendDay.getDay() !== 6) {
+      weekendDay.setDate(weekendDay.getDate() + 1);
     }
-    const sundayIso = sunday.toISOString().slice(0, 10);
+    // Ensure it's not today (would be excluded by "past" logic instead).
+    if (weekendDay.toDateString() === new Date().toDateString()) {
+      weekendDay.setDate(weekendDay.getDate() + 7);
+    }
+    const weekendIso = weekendDay.toISOString().slice(0, 10);
 
-    await page.getByLabel("Preferred date").fill(sundayIso);
+    await page.getByLabel("Preferred date").fill(weekendIso);
     await page.getByRole("button", { name: "Continue" }).click();
 
-    await expect(page.getByText("The clinic is closed on Sundays.")).toBeVisible();
+    await expect(page.getByText(/Koforidua is closed on weekends/)).toBeVisible();
     await expect(page.getByText("Step 3 of 4")).toBeVisible();
+  });
+
+  test("a default branch stays open on weekends", async ({ page }) => {
+    await page.goto("/book");
+    await page.getByLabel("Full name").fill("Ama Mensah");
+    await page.getByLabel("Contact number").fill("0244123456");
+    await page.getByLabel("Email address").fill("ama.mensah@example.com");
+    await page.getByText("New patient", { exact: true }).click();
+    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByText("General Health", { exact: true }).click();
+    await page.getByText("Osu", { exact: true }).click();
+    await page.getByRole("button", { name: "Continue" }).click();
+
+    const saturday = new Date();
+    while (saturday.getDay() !== 6) saturday.setDate(saturday.getDate() + 1);
+    const saturdayIso = saturday.toISOString().slice(0, 10);
+
+    await page.getByLabel("Preferred date").fill(saturdayIso);
+
+    // Weekend hours are 8am-2pm, so a morning slot should be offered and no
+    // "closed" error should appear.
+    await expect(page.getByRole("button", { name: "9:00 AM", exact: true })).toBeVisible();
+    await expect(page.getByText(/is closed/)).toHaveCount(0);
   });
 
   test(
@@ -101,8 +131,9 @@ test.describe("Booking flow", () => {
         fullName: "Kofi Appiah",
         phone: "0244555000",
         email: `kofi.appiah.${Date.now()}@example.com`,
+        patientType: "new",
         service: "General Health",
-        branch: "Accra Clinic",
+        branch: "Osu",
         date: futureWeekdayISO(10),
         timeLabel: "11:00 AM",
       });

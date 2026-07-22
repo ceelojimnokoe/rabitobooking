@@ -6,8 +6,8 @@ import { CalendarClock } from "lucide-react";
 import type { BookingRequestInput } from "@/lib/validation/booking";
 import {
   toDateKey,
-  availableTimeSlots,
-  validateDateKey,
+  availableTimeSlotsForBranch,
+  validateDateKeyForBranch,
   formatTimeLabel,
 } from "@/lib/scheduling";
 import { scheduling } from "@/config/clinic";
@@ -47,6 +47,7 @@ export function StepDateTime() {
     setNow(new Date());
   }, []);
 
+  const branch = watch("branch");
   const dateValue = watch("date");
   const timeValue = watch("time");
 
@@ -59,16 +60,21 @@ export function StepDateTime() {
     new Date(now.getTime() + scheduling.bookingWindowDays * 86_400_000),
   );
 
-  const dateValidation = dateValue ? validateDateKey(dateValue, now) : null;
+  const dateValidation = dateValue
+    ? validateDateKeyForBranch(dateValue, now, branch)
+    : null;
   const slots =
-    dateValue && dateValidation?.ok ? availableTimeSlots(dateValue, now) : [];
+    dateValue && dateValidation?.ok
+      ? availableTimeSlotsForBranch(dateValue, now, branch)
+      : [];
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h2 className="text-lg font-bold text-ink">Date &amp; time</h2>
         <p className="mt-1 text-sm text-muted">
-          Choose your preferred date and time. The clinic is closed Sundays.
+          Choose your preferred date and time. Opening days and hours vary by
+          branch.
         </p>
       </div>
 

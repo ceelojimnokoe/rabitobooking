@@ -1,6 +1,7 @@
 import { useFormContext } from "react-hook-form";
 import type { BookingRequestInput } from "@/lib/validation/booking";
 import { formatDateKeyLong, formatTimeLabel } from "@/lib/scheduling";
+import { patientTypes } from "@/config/clinic";
 
 const STEP_PATIENT_DETAILS = 0;
 const STEP_SERVICE_BRANCH = 1;
@@ -69,6 +70,14 @@ export function StepReview({ goToStep }: { goToStep: (step: number) => void }) {
         <ReviewRow
           label="Email"
           value={values.email}
+          onEdit={() => goToStep(STEP_PATIENT_DETAILS)}
+        />
+        <ReviewRow
+          label="Patient type"
+          value={
+            patientTypes.find((t) => t.id === values.patientType)?.label ??
+            values.patientType
+          }
           onEdit={() => goToStep(STEP_PATIENT_DETAILS)}
         />
         <ReviewRow

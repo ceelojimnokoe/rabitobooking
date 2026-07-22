@@ -22,12 +22,17 @@ export const hasNonAdminCredentials = Boolean(
   nonAdminCredentials.email && nonAdminCredentials.password,
 );
 
-/** Picks the next Monday (a working, non-Sunday day) at least a week out. */
+/**
+ * Picks a future weekday. Every branch is open weekdays (only Koforidua
+ * closes on weekends), so this is a safe default date regardless of which
+ * branch a test then selects.
+ */
 export function futureWeekdayISO(daysAhead = 8): string {
   const date = new Date();
   date.setDate(date.getDate() + daysAhead);
-  // Nudge off Sunday if we land on one.
-  if (date.getDay() === 0) date.setDate(date.getDate() + 1);
+  while (date.getDay() === 0 || date.getDay() === 6) {
+    date.setDate(date.getDate() + 1);
+  }
   return date.toISOString().slice(0, 10);
 }
 
@@ -35,6 +40,7 @@ export interface BookingDetails {
   fullName: string;
   phone: string;
   email: string;
+  patientType?: "new" | "existing";
   service: string;
   branch: string;
   date: string;
@@ -54,6 +60,11 @@ export async function submitBookingRequest(
   await page.getByLabel("Full name").fill(details.fullName);
   await page.getByLabel("Contact number").fill(details.phone);
   await page.getByLabel("Email address").fill(details.email);
+  await page
+    .getByText(details.patientType === "existing" ? "Existing patient" : "New patient", {
+      exact: true,
+    })
+    .click();
   await page.getByRole("button", { name: "Continue" }).click();
 
   await page.getByText(details.service, { exact: true }).click();

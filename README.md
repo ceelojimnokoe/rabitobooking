@@ -14,12 +14,15 @@ reference.
 
 - **Public landing page** (`/`) — branding, a five-step explainer, services,
   and three "coming soon" feature cards.
-- **Booking wizard** (`/book`) — patient details → service & branch → date
-  & time → review & consent → confirmation screen with a request reference.
+- **Booking wizard** (`/book`) — patient details (including new/existing
+  patient) → service & branch → date & time (opening days/hours vary by
+  branch) → review & consent → confirmation screen with a request reference.
 - **Admin login** (`/admin/login`) — Supabase email/password auth, gated by
   an `ADMIN_EMAILS` allowlist.
-- **Admin dashboard** (`/admin`) — summary counts, search, filters, and a
-  responsive table/card list of every request.
+- **Admin dashboard** (`/admin`) — summary counts, a "New" badge and toast
+  notification for unopened pending requests, search, filters (status,
+  service, branch, patient type, date range), an Excel export of the
+  current filtered view, and a responsive table/card list of every request.
 - **Appointment review** (`/admin/appointments/[id]`) — confirm (with an
   optional different branch/date/time/team), reject with a reason, add an
   internal note, and a conflict check before confirming.

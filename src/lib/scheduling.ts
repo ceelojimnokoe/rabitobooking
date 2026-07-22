@@ -1,5 +1,7 @@
 /**
- * Pure date/time scheduling helpers for the booking flow.
+ * Pure date/time scheduling helpers for the booking flow. Availability
+ * depends on which branch is selected — see `branchSchedules` in
+ * src/config/clinic.ts for each branch's weekday/weekend hours.
  *
  * Ghana Standard Time (Africa/Accra) is UTC+00:00 year-round with no DST,
  * so reading a Date's UTC fields directly gives Accra wall-clock time
@@ -7,7 +9,7 @@
  * logic identical on server and client (important for avoiding
  * hydration mismatches) without needing a timezone library.
  */
-import { scheduling } from "@/config/clinic";
+import { scheduling, branches, branchSchedules, type DayHours } from "@/config/clinic";
 
 export interface AccraDateParts {
   year: number;
@@ -41,8 +43,28 @@ function compareDateKeys(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-export function isWorkingDay(date: Date): boolean {
-  return scheduling.workingDays.includes(date.getUTCDay());
+function isWeekend(date: Date): boolean {
+  const day = date.getUTCDay();
+  return day === 0 || day === 6;
+}
+
+function resolveBranchId(branchLabel: string) {
+  return branches.find((b) => b.label === branchLabel)?.id;
+}
+
+/** The branch's hours for the given date's day of week, or null if closed. */
+export function getDayHoursForBranch(
+  branchLabel: string,
+  date: Date,
+): DayHours | null {
+  const id = resolveBranchId(branchLabel);
+  if (!id) return null;
+  const schedule = branchSchedules[id];
+  return isWeekend(date) ? schedule.weekend : schedule.weekday;
+}
+
+export function isBranchOpenOn(branchLabel: string, date: Date): boolean {
+  return getDayHoursForBranch(branchLabel, date) !== null;
 }
 
 /** Whether `dateKey` is strictly before "today" in Accra time. */
@@ -63,9 +85,10 @@ export interface DateValidationResult {
 }
 
 /** Full validation of a candidate date key against all booking rules. */
-export function validateDateKey(
+export function validateDateKeyForBranch(
   dateKey: string,
   now: Date,
+  branchLabel: string,
 ): DateValidationResult {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
     return { ok: false, reason: "Enter a valid date." };
@@ -83,8 +106,13 @@ export function validateDateKey(
       reason: `Please choose a date within the next ${scheduling.bookingWindowDays} days.`,
     };
   }
-  if (!isWorkingDay(date)) {
-    return { ok: false, reason: "The clinic is closed on Sundays." };
+  if (!isBranchOpenOn(branchLabel, date)) {
+    return {
+      ok: false,
+      reason: isWeekend(date)
+        ? `${branchLabel} is closed on weekends.`
+        : `${branchLabel} is closed on this day.`,
+    };
   }
   return { ok: true };
 }
@@ -102,11 +130,10 @@ function minutesToTime(minutes: number): string {
   return `${h}:${m}`;
 }
 
-/** All time slots for a working day, ignoring "now" (e.g. for display). */
-export function allTimeSlotsForDay(): string[] {
+function slotsBetween(hours: DayHours): string[] {
   const slots: string[] = [];
-  const open = timeToMinutes(scheduling.openingTime);
-  const close = timeToMinutes(scheduling.closingTime);
+  const open = timeToMinutes(hours.open);
+  const close = timeToMinutes(hours.close);
   for (
     let t = open;
     t + scheduling.slotDurationMinutes <= close;
@@ -117,12 +144,25 @@ export function allTimeSlotsForDay(): string[] {
   return slots;
 }
 
+/** All time slots for a branch on a given date, [] if closed that day. */
+export function allTimeSlotsForBranchDay(
+  branchLabel: string,
+  date: Date,
+): string[] {
+  const hours = getDayHoursForBranch(branchLabel, date);
+  return hours ? slotsBetween(hours) : [];
+}
+
 /**
- * Time slots available for a given date key, factoring in "now" so that
- * slots earlier today are not offered.
+ * Time slots available for a branch on a given date key, factoring in
+ * "now" so that slots earlier today are not offered.
  */
-export function availableTimeSlots(dateKey: string, now: Date): string[] {
-  const slots = allTimeSlotsForDay();
+export function availableTimeSlotsForBranch(
+  dateKey: string,
+  now: Date,
+  branchLabel: string,
+): string[] {
+  const slots = allTimeSlotsForBranchDay(branchLabel, fromDateKey(dateKey));
   if (dateKey !== toDateKey(now)) {
     return slots;
   }
@@ -130,23 +170,32 @@ export function availableTimeSlots(dateKey: string, now: Date): string[] {
   return slots.filter((slot) => timeToMinutes(slot) > nowMinutes);
 }
 
-/** Whether `time` is one of the configured slot start times. */
-export function isValidTimeSlot(time: string): boolean {
-  return allTimeSlotsForDay().includes(time);
+/** Whether `time` is one of the branch's configured slot start times on that date. */
+export function isValidTimeSlotForBranch(
+  time: string,
+  branchLabel: string,
+  dateKey: string,
+): boolean {
+  return allTimeSlotsForBranchDay(branchLabel, fromDateKey(dateKey)).includes(time);
 }
 
 /**
- * List of selectable date keys for the date picker, spanning the booking
- * window, excluding non-working days.
+ * List of selectable date keys for a branch's date picker, spanning the
+ * booking window, excluding days the branch is closed.
  */
-export function selectableDateKeys(now: Date): string[] {
+export function selectableDateKeysForBranch(
+  now: Date,
+  branchLabel: string,
+): string[] {
   const keys: string[] = [];
   for (let i = 0; i <= scheduling.bookingWindowDays; i++) {
     const candidate = new Date(now);
     candidate.setUTCDate(candidate.getUTCDate() + i);
-    if (!isWorkingDay(candidate)) continue;
+    if (!isBranchOpenOn(branchLabel, candidate)) continue;
     const dateKey = toDateKey(candidate);
-    if (i === 0 && availableTimeSlots(dateKey, now).length === 0) continue;
+    if (i === 0 && availableTimeSlotsForBranch(dateKey, now, branchLabel).length === 0) {
+      continue;
+    }
     keys.push(dateKey);
   }
   return keys;

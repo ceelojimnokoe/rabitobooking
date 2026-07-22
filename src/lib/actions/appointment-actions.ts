@@ -6,10 +6,12 @@ import {
   getAppointmentById,
   listConfirmedSlots,
   updateAppointment,
+  markAppointmentViewed,
+  countUnviewedPending,
 } from "@/lib/db/appointments";
 import { generateAppointmentReference } from "@/lib/reference";
 import { hasSlotConflict } from "@/lib/conflicts";
-import { isValidTimeSlot } from "@/lib/scheduling";
+import { isValidTimeSlotForBranch } from "@/lib/scheduling";
 import { buildConfirmationEmail, buildRejectionEmail } from "@/lib/email/templates";
 import { sendTransactionalEmail } from "@/lib/email/send";
 import { branches, teams } from "@/config/clinic";
@@ -49,8 +51,11 @@ export async function confirmAppointmentAction(
   if (!input.date || !/^\d{4}-\d{2}-\d{2}$/.test(input.date)) {
     return { success: false, error: "Select a valid date." };
   }
-  if (!isValidTimeSlot(input.time)) {
-    return { success: false, error: "Select a valid time." };
+  if (!isValidTimeSlotForBranch(input.time, input.branch, input.date)) {
+    return {
+      success: false,
+      error: "That time isn't available for the selected branch and date.",
+    };
   }
   if (input.assignedTeam && !teams.some((t) => t.label === input.assignedTeam)) {
     return { success: false, error: "Select a valid team." };
@@ -205,4 +210,21 @@ export async function updateInternalNoteAction(
 
   revalidatePath(`/admin/appointments/${appointmentId}`);
   return { success: true, data: undefined };
+}
+
+/** Marks a request as opened so it stops showing a "New" badge. */
+export async function markAppointmentViewedAction(appointmentId: string): Promise<void> {
+  await requireAdmin();
+  await markAppointmentViewed(appointmentId);
+  revalidatePath("/admin");
+}
+
+/**
+ * Polled by the dashboard to power its new-request notification — how many
+ * pending requests no administrator has opened yet.
+ */
+export async function getPendingUnviewedCountAction(): Promise<number> {
+  await requireAdmin();
+  const { count } = await countUnviewedPending();
+  return count;
 }

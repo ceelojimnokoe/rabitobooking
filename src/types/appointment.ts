@@ -1,5 +1,6 @@
 export type AppointmentStatus = "pending" | "confirmed" | "rejected" | "cancelled";
 export type EmailStatus = "not_sent" | "sent" | "failed" | "preview_only";
+export type PatientType = "new" | "existing";
 
 export interface EmailPreviewPayload {
   to: string;
@@ -18,6 +19,7 @@ export interface AppointmentRow {
   patient_name: string;
   phone: string;
   email: string;
+  patient_type: PatientType;
 
   service: string;
   requested_branch: string;
@@ -39,20 +41,10 @@ export interface AppointmentRow {
   email_provider_id: string | null;
   email_preview: EmailPreviewPayload | null;
 
+  /** When an administrator first opened this request — null until then. */
+  viewed_at: string | null;
+
   created_at: string;
   updated_at: string;
   confirmed_at: string | null;
-}
-
-export interface AppointmentInsert {
-  request_reference: string;
-  patient_name: string;
-  phone: string;
-  email: string;
-  service: string;
-  requested_branch: string;
-  requested_date: string;
-  requested_time: string;
-  status?: AppointmentStatus;
-  email_status?: EmailStatus;
 }
