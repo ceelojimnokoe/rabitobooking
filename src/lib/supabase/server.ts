@@ -2,6 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import type { Database } from "@/types/database";
+import { checkPublicEnv } from "@/lib/env/public";
 
 /**
  * Supabase client for Server Components / Route Handlers, bound to the
@@ -11,10 +12,11 @@ import type { Database } from "@/types/database";
  */
 export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
+  const { values } = checkPublicEnv();
 
   return createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    values.supabaseUrl,
+    values.supabaseAnonKey,
     {
       cookies: {
         getAll() {

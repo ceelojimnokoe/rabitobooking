@@ -4,6 +4,8 @@ import { bookingRequestSchema } from "@/lib/validation/booking";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { generateRequestReference } from "@/lib/reference";
 import { insertAppointmentRequest } from "@/lib/db/appointments";
+import { checkServerEnv } from "@/lib/env/server";
+import { devLog } from "@/lib/dev-log";
 
 function getClientKey(request: NextRequest): string {
   const forwardedFor = request.headers.get("x-forwarded-for");
@@ -35,6 +37,7 @@ export async function POST(request: NextRequest) {
 
   const parsed = bookingRequestSchema.safeParse(body);
   if (!parsed.success) {
+    devLog("book:validation", { fieldErrors: Object.keys(z.flattenError(parsed.error).fieldErrors) });
     return NextResponse.json(
       {
         error: "Please correct the highlighted fields and try again.",
@@ -47,7 +50,9 @@ export async function POST(request: NextRequest) {
   const { fullName, phone, email, patientType, service, branch, date, time } =
     parsed.data;
 
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  const envCheck = checkServerEnv();
+  if (!envCheck.ok) {
+    devLog("book:config", { issues: envCheck.issues });
     return NextResponse.json(
       {
         error:
@@ -77,7 +82,16 @@ export async function POST(request: NextRequest) {
     }
 
     if (error && error.code !== UNIQUE_VIOLATION) {
-      console.error("Booking submission failed", { code: error.code });
+      // Full error (code/message/details/hint) logged in dev only — never
+      // includes the patient's name/phone/email, only the operation and
+      // the database's own error description.
+      devLog("book:insert", {
+        operation: "insertAppointmentRequest",
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      });
       return NextResponse.json(
         { error: "We couldn't save your request. Please try again shortly." },
         { status: 500 },
@@ -86,6 +100,7 @@ export async function POST(request: NextRequest) {
     // Unique violation on request_reference — extremely unlikely; retry with a fresh code.
   }
 
+  devLog("book:insert", { note: "Exhausted retries on request_reference unique violations" });
   return NextResponse.json(
     { error: "We couldn't save your request. Please try again shortly." },
     { status: 500 },

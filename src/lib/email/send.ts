@@ -2,15 +2,13 @@ import "server-only";
 import { Resend } from "resend";
 import type { EmailContent } from "./templates";
 import type { EmailPreviewPayload, EmailStatus } from "@/types/appointment";
+import { checkServerEnv } from "@/lib/env/server";
+import { devLog } from "@/lib/dev-log";
 
 export interface SendEmailResult {
   status: EmailStatus;
   providerId: string | null;
   preview: EmailPreviewPayload | null;
-}
-
-function isResendConfigured(): boolean {
-  return Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL);
 }
 
 /**
@@ -24,7 +22,9 @@ export async function sendTransactionalEmail(
   to: string,
   content: EmailContent,
 ): Promise<SendEmailResult> {
-  if (!isResendConfigured()) {
+  const { resendApiKey, resendFromEmail } = checkServerEnv().values;
+
+  if (!resendApiKey || !resendFromEmail) {
     return {
       status: "preview_only",
       providerId: null,
@@ -39,9 +39,9 @@ export async function sendTransactionalEmail(
   }
 
   try {
-    const resend = new Resend(process.env.RESEND_API_KEY);
+    const resend = new Resend(resendApiKey);
     const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL!,
+      from: resendFromEmail,
       to,
       subject: content.subject,
       html: content.html,
@@ -49,11 +49,16 @@ export async function sendTransactionalEmail(
     });
 
     if (error) {
+      devLog("email:send", { name: error.name, message: error.message });
       return { status: "failed", providerId: null, preview: null };
     }
 
     return { status: "sent", providerId: data?.id ?? null, preview: null };
-  } catch {
+  } catch (err) {
+    devLog("email:send", {
+      note: "resend.emails.send threw",
+      message: err instanceof Error ? err.message : String(err),
+    });
     return { status: "failed", providerId: null, preview: null };
   }
 }

@@ -1,13 +1,8 @@
 import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-
-/** Parses the comma-separated ADMIN_EMAILS env var into a normalized list. */
-export function getAdminAllowlist(): string[] {
-  return (process.env.ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean);
-}
+import { getAdminAllowlist, isServerEnvConfigured } from "@/lib/env/server";
+import { isPublicEnvConfigured } from "@/lib/env/public";
+import { devLog } from "@/lib/dev-log";
 
 export function isAllowlistedAdminEmail(
   email: string | null | undefined,
@@ -19,12 +14,6 @@ export function isAllowlistedAdminEmail(
 export interface AdminSession {
   userId: string;
   email: string;
-}
-
-function isSupabaseConfigured(): boolean {
-  return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  );
 }
 
 /**
@@ -39,7 +28,10 @@ function isSupabaseConfigured(): boolean {
  * instead of a 500 error.
  */
 export async function getAdminSession(): Promise<AdminSession | null> {
-  if (!isSupabaseConfigured()) return null;
+  // Only the public vars are needed to check a session; requiring the
+  // service-role key here too would needlessly block login while, say,
+  // Resend env vars are still being set up.
+  if (!isPublicEnvConfigured()) return null;
 
   const supabase = await createSupabaseServerClient();
   const {
@@ -47,8 +39,20 @@ export async function getAdminSession(): Promise<AdminSession | null> {
     error,
   } = await supabase.auth.getUser();
 
-  if (error || !user || !user.email) return null;
-  if (!isAllowlistedAdminEmail(user.email)) return null;
+  if (error) {
+    devLog("admin-session", { code: error.code, status: error.status, name: error.name });
+    return null;
+  }
+  if (!user || !user.email) return null;
+
+  if (!isAllowlistedAdminEmail(user.email)) {
+    if (!isServerEnvConfigured()) {
+      devLog("admin-session", {
+        note: "ADMIN_EMAILS or another server-only var is missing/invalid — see checkServerEnv().issues",
+      });
+    }
+    return null;
+  }
 
   return { userId: user.id, email: user.email };
 }

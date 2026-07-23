@@ -1,5 +1,17 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// The Playwright test runner is a separate Node process from the `npm run
+// dev` child it spawns for webServer — Next.js loads .env.local for that
+// child itself, but Playwright never did for its own process, so
+// DB-gated tests (see e2e/helpers.ts) always skipped even when
+// .env.local had real credentials. Loading it here (if present) fixes
+// that, without adding a dotenv dependency.
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // No .env.local — fine, DB-gated tests will just skip as documented.
+}
+
 const PORT = 3000;
 const baseURL = process.env.NEXT_PUBLIC_APP_URL ?? `http://localhost:${PORT}`;
 

@@ -18,6 +18,8 @@ import type {
 export interface DbError {
   message: string;
   code?: string;
+  details?: string | null;
+  hint?: string | null;
 }
 
 const TABLE = "appointments";

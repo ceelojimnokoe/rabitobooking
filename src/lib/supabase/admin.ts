@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
+import { checkServerEnv } from "@/lib/env/server";
 
 /**
  * Privileged Supabase client using the service-role key. This bypasses Row
@@ -21,16 +22,12 @@ import { createClient } from "@supabase/supabase-js";
  * throughout the app.
  */
 export function createSupabaseAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !serviceRoleKey) {
-    throw new Error(
-      "Supabase is not configured: set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
-    );
+  const check = checkServerEnv();
+  if (!check.ok) {
+    throw new Error(`Supabase is not configured correctly: ${check.issues.join(" ")}`);
   }
 
-  return createClient(url, serviceRoleKey, {
+  return createClient(check.values.supabaseUrl, check.values.serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,

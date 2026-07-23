@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { isAllowlistedAdminEmail } from "@/lib/auth/admin";
+import { checkPublicEnv } from "@/lib/env/public";
 
 /**
  * Route protection for /admin/*. Runs before rendering, refreshes the
@@ -13,13 +14,14 @@ import { isAllowlistedAdminEmail } from "@/lib/auth/admin";
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const { values: publicEnv, ok: publicEnvOk } = checkPublicEnv();
+  const supabaseUrl = publicEnv.supabaseUrl;
+  const supabaseAnonKey = publicEnv.supabaseAnonKey;
 
   const { pathname } = request.nextUrl;
   const isLoginPage = pathname === "/admin/login";
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!publicEnvOk) {
     // Supabase isn't configured yet (fresh demo checkout). Let the request
     // through — the admin pages themselves show a clear "not configured"
     // message rather than the proxy failing opaquely.

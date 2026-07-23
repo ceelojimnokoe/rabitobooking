@@ -135,3 +135,8 @@ test("formatTimeLabel formats 24h time as 12h", () => {
   assert.equal(formatTimeLabel("13:30"), "1:30 PM");
   assert.equal(formatTimeLabel("00:00"), "12:00 AM");
 });
+
+test("formatTimeLabel returns malformed input unchanged instead of throwing", () => {
+  assert.equal(formatTimeLabel(""), "");
+  assert.equal(formatTimeLabel("not-a-time"), "not-a-time");
+});

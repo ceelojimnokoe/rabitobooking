@@ -213,9 +213,17 @@ export function formatDateKeyLong(dateKey: string): string {
   }).format(date);
 }
 
-/** Human-friendly 12-hour time, e.g. "9:00 AM", from a "HH:mm" string. */
+/**
+ * Human-friendly 12-hour time, e.g. "9:00 AM", from a "HH:mm" string.
+ * Returns the input unchanged if it isn't a well-formed "HH:mm" string
+ * (e.g. legacy data referencing a branch/date combination with no slots)
+ * rather than crashing the page that's trying to display it.
+ */
 export function formatTimeLabel(time: string): string {
-  const [h, m] = time.split(":").map(Number);
+  const match = /^(\d{1,2}):(\d{2})$/.exec(time);
+  if (!match) return time;
+  const h = Number(match[1]);
+  const m = Number(match[2]);
   const period = h >= 12 ? "PM" : "AM";
   const hour12 = h % 12 === 0 ? 12 : h % 12;
   return `${hour12}:${m.toString().padStart(2, "0")} ${period}`;

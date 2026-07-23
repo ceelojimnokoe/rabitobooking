@@ -53,9 +53,13 @@ export function AdminActionsPanel({ appointment }: { appointment: AppointmentRow
 
   // Recomputed from branch/date on every render rather than synced via an
   // effect: if the previously-selected time isn't offered for the current
-  // branch/date, fall back to the first slot that is.
+  // branch/date, fall back to the first slot that is. If there are no
+  // slots at all (e.g. legacy data referencing a branch name that's since
+  // been renamed/removed from config), fall back to the stored `time`
+  // itself rather than "" — formatTimeLabel tolerates a malformed value,
+  // but an empty string is never a meaningful appointment time to show.
   const availableSlots = date ? allTimeSlotsForBranchDay(branch, fromDateKey(date)) : [];
-  const effectiveTime = availableSlots.includes(time) ? time : (availableSlots[0] ?? "");
+  const effectiveTime = availableSlots.includes(time) ? time : (availableSlots[0] ?? time);
 
   async function handleConfirm() {
     setIsSubmitting(true);
@@ -167,6 +171,12 @@ export function AdminActionsPanel({ appointment }: { appointment: AppointmentRow
                 onChange={(e) => setBranch(e.target.value)}
                 className={selectClasses}
               >
+                {/* Legacy data may reference a branch name no longer in
+                    config (e.g. after a rename) — show it as a labelled
+                    option instead of silently mismatching the select. */}
+                {!branches.some((b) => b.label === branch) && branch ? (
+                  <option value={branch}>{branch} (no longer a listed branch)</option>
+                ) : null}
                 {branches.map((b) => (
                   <option key={b.id} value={b.label}>
                     {b.label}

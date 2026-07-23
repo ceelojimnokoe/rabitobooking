@@ -2,11 +2,15 @@
 
 import { createBrowserClient } from "@supabase/ssr";
 import type { Database } from "@/types/database";
+import { checkPublicEnv } from "@/lib/env/public";
 
-/** Supabase client for Client Components. Uses only the public anon key. */
+/**
+ * Supabase client for Client Components. Uses only the public anon key.
+ * Only call this after confirming `isPublicEnvConfigured()` — like
+ * `createSupabaseServerClient`, this throws immediately if the URL/key
+ * are missing, since the underlying SDK validates them eagerly.
+ */
 export function createSupabaseBrowserClient() {
-  return createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
+  const { values } = checkPublicEnv();
+  return createBrowserClient<Database>(values.supabaseUrl, values.supabaseAnonKey);
 }
